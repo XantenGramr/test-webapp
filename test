@@ -1,0 +1,69 @@
+Sub Calculate()
+    Dim wsData As Worksheet, wsColors As Worksheet
+    Dim lastRow As Long, rowIdx As Long, colIdx As Long
+    Dim groupIdx As Long, colorFound As Boolean
+    Dim cellColor As Long
+    Dim logRow As Long
+    Dim refCell As Range
+    
+    Set wsData = ThisWorkbook.Sheets("Calculation")     ' Data sheet
+    Set wsColors = ThisWorkbook.Sheets("GroupReference")   ' Reference groups
+    
+    ' Previous Calculation
+    wsData.Range("P3:T1000").ClearContents
+    
+    ' Clear logs
+    wsData.Range("U3:V1000").ClearContents
+    wsData.Range("U3:V1000").Interior.Color = xlNone
+    ' logRow = 2
+    
+    ' Find last row in data (based on column G)
+    lastRow = 1000
+    
+    ' Iterate rows
+    For rowIdx = 3 To lastRow
+        ' Reset totals for this row (one per group)
+        Dim totals(1 To 5) As Double
+        
+        If wsData.Cells(rowIdx, 24).Value = False Then
+            Exit For
+        End If
+        
+        ' Iterate columns G ? L (7 ? 12)
+        For colIdx = 3 To 14
+            If IsNumeric(wsData.Cells(rowIdx, colIdx).Value) Then
+                cellColor = wsData.Cells(rowIdx, colIdx).Interior.Color
+                colorFound = False
+                
+                ' Look for cellColor in reference groups (A:E)
+                For groupIdx = 1 To 5
+                    For Each refCell In wsColors.Range(wsColors.Cells(3, groupIdx), wsColors.Cells(6, groupIdx))
+                        If refCell.Interior.Color = cellColor And refCell.Interior.Color <> 0 And refCell.Interior.Color <> 16777215 Then
+                            totals(groupIdx) = totals(groupIdx) + wsData.Cells(rowIdx, colIdx).Value
+                            colorFound = True
+                            Exit For
+                        End If
+                    Next refCell
+                    If colorFound Then Exit For
+                Next groupIdx
+                
+                ' If not found, log it
+                If Not colorFound And cellColor <> 16777215 Then
+                    wsData.Cells(rowIdx, 21).Value = "MISSING COLOR DEFINITION"
+                    wsData.Cells(rowIdx, 22).Interior.Color = cellColor
+                    MsgBox "Missing Color"
+                    Exit Sub
+                End If
+            End If
+        Next colIdx
+        
+        ' Write totals back to Sheet1 starting at column M
+        For groupIdx = 1 To 5
+            wsData.Cells(rowIdx, 15 + groupIdx).Value = totals(groupIdx)   ' M=13, N=14, etc.
+            totals(groupIdx) = 0
+        Next groupIdx
+        
+    Next rowIdx
+    
+    MsgBox "Process complete. ", vbInformation
+End Sub
